@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>夢幻打地鼠 - 進階挑戰版</title>
+    <!-- Tailwind CSS for utility styles -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for styled typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: radial-gradient(circle, #1e1b4b 0%, #0f172a 100%);
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* 毛玻璃效果 Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* 遊戲泥土坑洞 */
+        .dirt-hole {
+            position: relative;
+            width: 120px;
+            height: 85px;
+            background: radial-gradient(ellipse at bottom, #3b2314 20%, #1c0f0a 80%);
+            border-radius: 50%;
+            border: 4px solid #1e110b;
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.6), 0 8px 15px rgba(0,0,0,0.4);
+            overflow: hidden; /* 確保地鼠從洞裡升起 */
+        }
+
+        /* 地鼠基本容器與動畫 */
+        .mole-container {
+            position: absolute;
+            bottom: -10px; /* 初始藏在洞底 */
+            left: 50%;
+            transform: translateX(-50%) translateY(100%);
+            width: 90px;
+            height: 95px;
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.15);
+            cursor: pointer;
+            pointer-events: none; /* 藏起來時不能點擊 */
+        }
+
+        /* 當地鼠浮現時 */
+        .mole-container.up {
+            transform: translateX(-50%) translateY(0%);
+            pointer-events: auto; /* 浮現時可以點擊 */
+        }
+
+        /* 被擊中的震動位移特效 */
+        @keyframes whack-shake {
+            0% { transform: translateX(-50%) translateY(0) scale(1); }
+            20% { transform: translateX(-50%) translateY(10px) scale(0.9) rotate(-5deg); }
+            40% { transform: translateX(-52%) translateY(-10px) scale(1.1) rotate(5deg); }
+            60% { transform: translateX(-48%) translateY(-15px) scale(1.1) rotate(-3deg); }
+            80% { transform: translateX(-50%) translateY(-10px) scale(1.05) rotate(0deg); }
+            100% { transform: translateX(-50%) translateY(100%) scale(1); } /* 打完直接縮回 */
+        }
+
+        .mole-container.hit {
+            animation: whack-shake 0.45s ease-out forwards;
+            pointer-events: none; /* 擊中後不可重複點擊 */
+        }
+
+        /* 浮動分數飄字動畫 */
+        @keyframes float-up {
+            0% { transform: translateY(0) scale(0.8); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-70px) scale(1.2); opacity: 0; }
+        }
+        .score-popup {
+            position: absolute;
+            animation: float-up 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+            pointer-events: none;
+            font-weight: 900;
+            z-index: 50;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        /* 炸彈地鼠爆炸的螢幕紅光閃爍 */
+        @keyframes flash-red {
+            0% { background-color: rgba(239, 68, 68, 0); }
+            20% { background-color: rgba(239, 68, 68, 0.45); }
+            100% { background-color: rgba(239, 68, 68, 0); }
+        }
+        .flash-screen {
+            animation: flash-red 0.5s ease-out forwards;
+        }
+
+        /* 金色閃爍特效 */
+        @keyframes gold-glow {
+            0%, 100% { filter: drop-shadow(0 0 4px #fbbf24) brightness(1); }
+            50% { filter: drop-shadow(0 0 15px #fbbf24) brightness(1.3); }
+        }
+        .golden-glow {
+            animation: gold-glow 0.8s infinite alternate;
+        }
+
+        /* 槌子自訂鼠標 */
+        .game-area {
+            cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><text y='38' font-size='38'>🔨</text></svg>"), auto;
+        }
+        .game-area:active {
+            cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><text y='38' font-size='38' transform='rotate(-30 20 20)'>🔨</text></svg>"), auto;
+        }
+
+        /* 煙霧特效 */
+        @keyframes puff {
+            0% { transform: scale(0.4) translate(-50%, -50%); opacity: 0; }
+            50% { opacity: 0.8; }
+            100% { transform: scale(1.2) translate(-50%, -50%); opacity: 0; }
+        }
+        .dust-cloud {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(226,232,240,0.6) 0%, rgba(226,232,240,0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: puff 0.4s ease-out forwards;
+            z-index: 30;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-center items-center p-4">
+
+    <!-- 螢幕受擊閃光層 -->
+    <div id="flashOverlay" class="fixed inset-0 pointer-events-none z-50"></div>
+
+    <!-- ==================== 1. 開始頁面 (Start Screen) ==================== -->
+    <div id="startScreen" class="glass-panel max-w-md w-full rounded-2xl p-8 text-center flex flex-col items-center gap-6 z-10 transition-all duration-300 transform scale-100">
+        <div class="text-6xl animate-bounce my-2">🐹✨</div>
+        <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-amber-400 tracking-wider">
+            夢幻打地鼠
+        </h1>
+        <p class="text-slate-300 text-sm leading-relaxed">
+            這是一場考驗反應速度的冒險！<br>
+            擊中普通與黃金地鼠獲得高分，避開危險的炸彈！
+        </p>
+
+        <!-- 遊戲說明卡片 -->
+        <div class="w-full text-xs text-left bg-slate-900/50 rounded-lg p-4 space-y-2 border border-slate-700/50">
+            <div class="flex items-center gap-2">
+                <span class="text-base">🟫</span>
+                <span class="font-bold text-amber-200">普通地鼠：</span>
+                <span class="text-slate-300">+10分（可累積連擊 Combo）</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-base">✨🐹✨</span>
+                <span class="font-bold text-yellow-400">金色地鼠：</span>
+                <span class="text-slate-300">+50分（速度極快、一閃即逝）</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-base">💣</span>
+                <span class="font-bold text-red-400">炸彈地鼠：</span>
+                <span class="text-slate-300">扣 20 分且中斷連擊，引爆紅光</span>
+            </div>
+            <div class="mt-2 text-center text-teal-300 font-bold">💡 提示：連續命中可獲得倍率得分加成！</div>
+        </div>
+
+        <div class="text-slate-400 text-sm">
+            目前最高分紀錄：<span id="startHighScore" class="text-yellow-400 font-black text-lg">0</span> 分
+        </div>
+
+        <button id="btnStart" class="w-full py-4 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white font-extrabold rounded-xl shadow-lg shadow-teal-500/20 transform active:scale-95 transition-all text-lg tracking-widest">
+            開始挑戰
+        </button>
+    </div>
+
+    <!-- ==================== 2. 遊戲主體 (Game Screen) ==================== -->
+    <div id="gameScreen" class="hidden w-full max-w-4xl flex flex-col gap-6 z-10">
+        
+        <!-- 上方資訊欄 (毛玻璃計分板) -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-wrap justify-between items-center gap-4">
+            <!-- 得分與Combo -->
+            <div class="flex items-center gap-4">
+                <div class="text-left">
+                    <div class="text-xs text-slate-400 uppercase tracking-widest">SCORE</div>
+                    <div id="gameScore" class="text-3xl font-black text-white">0000</div>
+                </div>
+                <!-- 連擊面板 -->
+                <div id="comboContainer" class="opacity-0 scale-75 transition-all duration-300 flex items-center gap-1.5 bg-gradient-to-r from-pink-500 to-rose-500 px-3 py-1 rounded-full text-white font-bold text-sm shadow-md shadow-pink-500/30">
+                    <span id="comboCount">0</span> COMBO!
+                    <span id="comboMultiplier" class="text-xs bg-white text-rose-600 px-1 rounded">x1.0</span>
+                </div>
+            </div>
+
+            <!-- 動態難度級別 -->
+            <div class="text-center px-4 py-1.5 bg-indigo-500/20 rounded-full border border-indigo-500/30 text-xs text-indigo-300 font-semibold">
+                難度等級: <span id="difficultyLevel">1</span>
+            </div>
+
+            <!-- 時間計時條與數值 -->
+            <div class="flex items-center gap-3 min-w-[180px]">
+                <div class="text-right">
+                    <div class="text-xs text-slate-400 tracking-widest">TIME LEFT</div>
+                    <div id="gameTime" class="text-2xl font-mono font-black text-emerald-400">30s</div>
+                </div>
+                <div class="flex-grow w-24 h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+                    <div id="timeProgressBar" class="h-full bg-gradient-to-r from-emerald-400 to-teal-300 w-full transition-all duration-200"></div>
+                </div>
+            </div>
+
+            <!-- 離開按鈕 -->
+            <button id="btnAbort" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-3 py-1.5 rounded-lg border border-slate-700 transition">
+                放棄
+            </button>
+        </div>
+
+        <!-- 遊戲主體棋盤區域 -->
+        <div class="game-area glass-panel rounded-3xl p-8 grid grid-cols-3 gap-y-12 gap-x-6 justify-items-center relative">
+            <!-- 9 個地鼠洞 -->
+            <div class="dirt-hole" data-index="0">
+                <div class="mole-container" data-id="0"></div>
+            </div>
+            <div class="dirt-hole" data-index="1">
+                <div class="mole-container" data-id="1"></div>
+            </div>
+            <div class="dirt-hole" data-index="2">
+                <div class="mole-container" data-id="2"></div>
+            </div>
+            <div class="dirt-hole" data-index="3">
+                <div class="mole-container" data-id="3"></div>
+            </div>
+            <div class="dirt-hole" data-index="4">
+                <div class="mole-container" data-id="4"></div>
+            </div>
+            <div class="dirt-hole" data-index="5">
+                <div class="mole-container" data-id="5"></div>
+            </div>
+            <div class="dirt-hole" data-index="6">
+                <div class="mole-container" data-id="6"></div>
+            </div>
+            <div class="dirt-hole" data-index="7">
+                <div class="mole-container" data-id="7"></div>
+            </div>
+            <div class="dirt-hole" data-index="8">
+                <div class="mole-container" data-id="8"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 3. 結算頁面 (Game Over Screen) ==================== -->
+    <div id="gameOverScreen" class="hidden glass-panel max-w-md w-full rounded-2xl p-8 text-center flex flex-col items-center gap-6 z-10 transition-all duration-300">
+        <div class="text-6xl my-2">🏆</div>
+        <h1 class="text-3xl font-extrabold text-slate-100 tracking-wide">
+            挑戰結束！
+        </h1>
+
+        <!-- 本次得分 -->
+        <div class="bg-slate-900/40 border border-slate-700/50 rounded-xl py-6 px-10 w-full">
+            <div class="text-xs text-slate-400 uppercase tracking-widest">最終得分</div>
+            <div id="finalScore" class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500 my-1">
+                0
+            </div>
+            <div id="newRecordBadge" class="hidden inline-block text-xs font-bold bg-rose-500 text-white px-2.5 py-1 rounded-full animate-pulse mt-2">
+                🎉 新紀錄！
+            </div>
+        </div>
+
+        <!-- 數據統計 -->
+        <div class="w-full text-sm text-slate-300 space-y-2 px-2">
+            <div class="flex justify-between border-b border-slate-800 pb-2">
+                <span>最高連擊 (Max Combo)</span>
+                <span id="statMaxCombo" class="font-bold text-pink-400">0</span>
+            </div>
+            <div class="flex justify-between border-b border-slate-800 pb-2">
+                <span>地鼠命中率</span>
+                <span id="statHitRate" class="font-bold text-teal-400">0%</span>
+            </div>
+            <div class="flex justify-between pb-1">
+                <span>歷史最高紀錄</span>
+                <span id="statHighScore" class="font-bold text-yellow-400">0</span>
+            </div>
+        </div>
+
+        <div class="w-full flex gap-4">
+            <button id="btnRestart" class="flex-1 py-3.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white font-extrabold rounded-xl shadow-lg shadow-teal-500/10 transform active:scale-95 transition-all">
+                再玩一次
+            </button>
+            <button id="btnBackToHome" class="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl border border-slate-700 transition">
+                首頁
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+    <script>
+        /*************************************************************
+         * 1. 音效支援 (Audio Support) - 預留播放介面
+         *************************************************************/
+        class SoundEffectsManager {
+            constructor() {
+                // 預留音效 URL 的物件字典，您只需在此處填入合法的音訊路徑即可啟用
+                this.audioSources = {
+                    whackNormal: '', // 打擊普通地鼠音效 (例如 'sounds/whack.mp3')
+                    whackGold: '',   // 打擊金色地鼠音效 (例如 'sounds/gold.mp3')
+                    bombExplosion: '', // 打到炸彈音效 (例如 'sounds/explosion.mp3')
+                    comboUp: '',     // 連擊達特定階段音效 (例如 'sounds/combo.mp3')
+                    gameStart: '',   // 遊戲開始音效
+                    gameOver: '',    // 遊戲結束音效
+                    whackMiss: ''    // 揮空或漏打音效
+                };
+            }
+
+            /**
+             * 核心播放方法：包含健全的錯誤補捉，避免音效未載入時造成遊戲崩潰
+             * @param {string} type - 播放的音效類型
+             */
+            play(type) {
+                const src = this.audioSources[type];
+                if (!src) {
+                    // 若未配置路徑，我們在控制台印出日誌供開發者確認
+                    console.log(`[音效預留介面] 正在播放: ${type} (請在程式碼中填入真實的音效路徑)`);
+                    return;
+                }
+
+                try {
+                    const audio = new Audio(src);
+                    audio.currentTime = 0;
+                    audio.play().catch(e => {
+                        console.warn("[音效播放失敗]", e.message);
+                    });
+                } catch (error) {
+                    console.error("[音效初始化失敗]", error);
+                }
+            }
+        }
+
+        const Sound = new SoundEffectsManager();
+
+        /*************************************************************
+         * 2. 地鼠 SVG 樣式模板 (SVG Asset Generator)
+         *************************************************************/
+        // 普通地鼠 SVG
+        const NORMAL_MOLE_SVG = `
+            <svg viewBox="0 0 100 100" class="w-full h-full">
+                <!-- 身體 -->
+                <path d="M15,95 C15,35 85,35 85,95 Z" fill="#8B5A2B" stroke="#5C3A1A" stroke-width="3"/>
+                <!-- 肚子 -->
+                <ellipse cx="50" cy="70" rx="22" ry="18" fill="#D2B48C"/>
+                <!-- 眼睛 -->
+                <circle cx="38" cy="48" r="5" fill="#1A1A1A"/>
+                <circle cx="62" cy="48" r="5" fill="#1A1A1A"/>
+                <circle cx="40" cy="46" r="1.5" fill="#FFFFFF"/>
+                <circle cx="64" cy="46" r="1.5" fill="#FFFFFF"/>
+                <!-- 腮紅 -->
+                <circle cx="30" cy="56" r="4" fill="#FF8C8C" opacity="0.6"/>
+                <circle cx="70" cy="56" r="4" fill="#FF8C8C" opacity="0.6"/>
+                <!-- 鼻子 -->
+                <polygon points="46,55 54,55 50,60" fill="#E25858"/>
+                <!-- 嘴巴與小門牙 -->
+                <path d="M46,63 Q50,67 54,63" fill="none" stroke="#1A1A1A" stroke-width="2.5"/>
+                <rect x="47" y="64" width="3" height="3" fill="#FFFFFF"/>
+                <rect x="50" y="64" width="3" height="3" fill="#FFFFFF"/>
+            </svg>
+        `;
+
+        // 被擊中的普通地鼠 SVG (表情改變)
+        const HIT_NORMAL_MOLE_SVG = `
+            <svg viewBox="0 0 100 100" class="w-full h-full">
+                <path d="M15,95 C15,35 85,35 85,95 Z" fill="#8B5A2B" stroke="#5C3A1A" stroke-width="3"/>
+                <ellipse cx="50" cy="70" rx="22" ry="18" fill="#D2B48C"/>
+                <!-- 哭哭眼 (X X) -->
+                <path d="M34,44 L42,52 M42,44 L34,52" fill="none" stroke="#1A1A1A" stroke-width="3" stroke-linecap="round"/>
+                <path d="M58,44 L66,52 M66,44 L58,52" fill="none" stroke="#1A1A1A" stroke-width="3" stroke-linecap="round"/>
+                <!-- 驚訝/痛腮紅 -->
+                <circle cx="30" cy="58" r="5" fill="#FF5252" opacity="0.8"/>
+                <circle cx="70" cy="58" r="5" fill="#FF5252" opacity="0.8"/>
+                <!-- 圓圓驚訝嘴 -->
+                <circle cx="50" cy="65" r="5" fill="#1A1A1A"/>
+                <!-- 頭上旋轉暈眩 -->
+                <path d="M40,25 Q50,15 60,25" fill="none" stroke="#FFD700" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        `;
+
+        // 金色地鼠 SVG
+        const GOLD_MOLE_SVG = `
+            <svg viewBox="0 0 100 100" class="w-full h-full golden-glow">
+                <!-- 身體 (金色漸層) -->
+                <defs>
+                    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#FFF9A6" />
+                        <stop offset="50%" stop-color="#FBBF24" />
+                        <stop offset="100%" stop-color="#D97706" />
+                    </linearGradient>
+                </defs>
+                <path d="M15,95 C15,35 85,35 85,95 Z" fill="url(#goldGrad)" stroke="#B45309" stroke-width="3"/>
+                <!-- 肚子 -->
+                <ellipse cx="50" cy="70" rx="22" ry="18" fill="#FDE68A" opacity="0.8"/>
+                <!-- 酷墨鏡 -->
+                <rect x="28" y="44" width="18" height="10" rx="3" fill="#1E293B"/>
+                <rect x="54" y="44" width="18" height="10" rx="3" fill="#1E293B"/>
+                <line x1="46" y1="48" x2="54" y2="48" stroke="#1E293B" stroke-width="4"/>
+                <path d="M30,46 L40,52" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M56,46 L66,52" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
+                <!-- 鼻子 -->
+                <polygon points="46,57 54,57 50,61" fill="#EF4444"/>
+                <!-- 得意笑容 -->
+                <path d="M44,65 Q50,71 56,65" fill="none" stroke="#1E293B" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+        `;
+
+        // 被擊中的金色地鼠 SVG (崩潰表情)
+        const HIT_GOLD_MOLE_SVG = `
+            <svg viewBox="0 0 100 100" class="w-full h-full">
+                <defs>
+                    <linearGradient id="goldGradHit" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#FFF9A6" />
+                        <stop offset="50%" stop-color="#FBBF24" />
+                        <stop offset="100%" stop-color="#D97706" />
+                    </linearGradient>
+                </defs>
+                <path d="M15,95 C15,35 85,35 85,95 Z" fill="url(#goldGradHit)" stroke="#B45309" stroke-width="3"/>
+                <ellipse cx="50" cy="70" rx="22" ry="18" fill="#FDE68A" opacity="0.8"/>
+                <!-- 掉落的歪歪墨鏡 -->
+                <g transform="rotate(-15 50 50)">
+                    <rect x="25" y="48" width="18" height="10" rx="3" fill="#1E293B"/>
+                    <rect x="51" y="48" width="18" height="10" rx="3" fill="#1E293B"/>
+                    <line x1="43" y1="52" x2="51" y2="52" stroke="#1E293B" stroke-width="4"/>
+                </g>
+                <!-- 哭泣眼漩渦 -->
+                <path d="M28,40 Q33,45 38,40" fill="none" stroke="#1E293B" stroke-width="2" stroke-linecap="round"/>
+                <path d="M62,40 Q67,45 72,40" fill="none" stroke="#1E293B" stroke-width="2" stroke-linecap="round"/>
+                <!-- 哭泣流淚 -->
+                <path d="M33,43 C33,48 31,52 33,54" fill="none" stroke="#38BDF8" stroke-width="2"/>
+                <!-- 鼻子 -->
+                <polygon points="46,57 54,57 50,61" fill="#EF4444"/>
+                <!-- 歪嘴 -->
+                <path d="M45,67 Q50,62 55,67" fill="none" stroke="#1A1A1A" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+        `;
+
+        // 炸彈地鼠 SVG (危險邪惡表情)
+        const BOMB_MOLE_SVG = `
+            <svg viewBox="0 0 100 100" class="w-full h-full">
+                <!-- 黑色炸彈身體 -->
+                <path d="M15,95 C15,35 85,35 85,95 Z" fill="#334155" stroke="#1E293B" stroke-width="3"/>
+                <!-- 警告標誌 -->
+                <path d="M50,42 L50,62 M50,70 L50,72" fill="none" stroke="#EF4444" stroke-width="5" stroke-linecap="round"/>
+                <!-- 導火線 -->
+                <path d="M50,35 Q55,20 68,15" fill="none" stroke="#D1D5DB" stroke-width="3"/>
+                <!-- 火花 (閃爍效果) -->
+                <path d="M68,15 L66,10 M68,15 L74,13 M68,15 L70,21 M68,15 L63,17" fill="none" stroke="#FBBF24" stroke-width="2.5" stroke-linecap="round"/>
+                <!-- 邪惡的斜眼 -->
+                <path d="M30,42 L42,47" fill="none" stroke="#EF4444" stroke-width="3" stroke-linecap="round"/>
+                <path d="M70,42 L58,47" fill="none" stroke="#EF4444" stroke-width="3" stroke-linecap="round"/>
+                <!-- 鋸齒嘴巴 -->
+                <path d="M38,72 L44,68 L50,72 L56,68 L62,72" fill="none" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+        `;
+
+        // 爆炸後的炸彈地鼠 SVG (化為灰燼)
+        const HIT_BOMB_MOLE_SVG = `
+            <svg viewBox="0 0 100 100" class="w-full h-full">
+                <!-- 爆開痕跡與灰煙 -->
+                <path d="M15,95 C25,75 75,75 85,95 Z" fill="#475569" stroke="#334155" stroke-width="2"/>
+                <!-- X眼睛 -->
+                <text x="25" y="80" font-family="Arial" font-size="20" fill="#94A3B8" font-weight="bold">X</text>
+                <text x="60" y="80" font-family="Arial" font-size="20" fill="#94A3B8" font-weight="bold">X</text>
+                <!-- 爆炸火花碎屑 -->
+                <path d="M20,40 L10,30 M80,40 L90,30 M50,15 L50,5" fill="none" stroke="#EF4444" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+        `;
+
+        /*************************************************************
+         * 3. 遊戲核心邏輯 (Game Logic)
+         *************************************************************/
+        const CONFIG = {
+            gameDuration: 30, // 每次遊玩時間為 30 秒
+            baseMoleUpTime: 1000, // 普通地鼠基礎上升持續時間 (ms)
+            minMoleUpTime: 450,   // 最短的地鼠浮現時間 (毫秒 - 動態難度下限)
+            spawnInterval: 750,  // 地鼠生成時間間隔 (ms)
+        };
+
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let timeLeft = CONFIG.gameDuration;
+        let isPlaying = false;
+        let molesHit = 0;     // 已擊中地鼠總量 (普通 + 金色)
+        let molesMissed = 0;  // 漏掉的地鼠總量 (普通 + 金色)
+        let molesSpawned = 0; // 生出的總地鼠量 (普通 + 金色 + 炸彈)
+        let gameTimerId = null;
+        let spawnTimerId = null;
+
+        // 追蹤每個洞目前狀態與計時
+        const holeStates = Array(9).fill(null).map(() => ({
+            active: false,
+            type: null, // 'normal', 'gold', 'bomb'
+            timeoutId: null
+        }));
+
+        // DOM 元素快取
+        const startScreen = document.getElementById('startScreen');
+        const gameScreen = document.getElementById('gameScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const flashOverlay = document.getElementById('flashOverlay');
+        
+        const btnStart = document.getElementById('btnStart');
+        const btnAbort = document.getElementById('btnAbort');
+        const btnRestart = document.getElementById('btnRestart');
+        const btnBackToHome = document.getElementById('btnBackToHome');
+        
+        const startHighScoreEl = document.getElementById('startHighScore');
+        const gameScoreEl = document.getElementById('gameScore');
+        const comboContainer = document.getElementById('comboContainer');
+        const comboCountEl = document.getElementById('comboCount');
+        const comboMultiplierEl = document.getElementById('comboMultiplier');
+        const difficultyLevelEl = document.getElementById('difficultyLevel');
+        const gameTimeEl = document.getElementById('gameTime');
+        const timeProgressBar = document.getElementById('timeProgressBar');
+
+        const finalScoreEl = document.getElementById('finalScore');
+        const newRecordBadge = document.getElementById('newRecordBadge');
+        const statMaxComboEl = document.getElementById('statMaxCombo');
+        const statHitRateEl = document.getElementById('statHitRate');
+        const statHighScoreEl = document.getElementById('statHighScore');
+
+        const moleContainers = document.querySelectorAll('.mole-container');
+
+        // 初始化最高紀錄
+        updateHighScoreDisplay();
+
+        // 綁定按鈕事件
+        btnStart.addEventListener('click', startGame);
+        btnAbort.addEventListener('click', stopGame);
+        btnRestart.addEventListener('click', startGame);
+        btnBackToHome.addEventListener('click', showStartScreen);
+
+        // 綁定地鼠點擊/打擊事件
+        moleContainers.forEach(container => {
+            // 支持 touch 與 mouse
+            container.addEventListener('mousedown', (e) => handleMoleWhack(e, container));
+            container.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // 防止重複觸發
+                handleMoleWhack(e, container);
+            });
+        });
+
+        /**
+         * 讀取並更新最高分顯示
+         */
+        function updateHighScoreDisplay() {
+            const highScore = localStorage.getItem('whack_mole_high_score') || 0;
+            startHighScoreEl.textContent = highScore;
+            statHighScoreEl.textContent = highScore;
+        }
+
+        /**
+         * 切換到開始畫面
+         */
+        function showStartScreen() {
+            gameOverScreen.classList.add('hidden');
+            gameScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            updateHighScoreDisplay();
+        }
+
+        /**
+         * 開始遊戲主控制
+         */
+        function startGame() {
+            // 重設所有狀態
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            timeLeft = CONFIG.gameDuration;
+            molesHit = 0;
+            molesMissed = 0;
+            molesSpawned = 0;
+            isPlaying = true;
+
+            // 更新 UI 呈現
+            gameScoreEl.textContent = "0000";
+            difficultyLevelEl.textContent = "1";
+            gameTimeEl.textContent = `${timeLeft}s`;
+            timeProgressBar.style.width = '100%';
+            comboContainer.classList.add('opacity-0', 'scale-75');
+
+            // 乾淨清空所有的洞與地鼠動畫
+            clearAllHoles();
+
+            // 轉變畫面
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+
+            Sound.play('gameStart');
+
+            // 啟動計時器 (每秒遞減)
+            gameTimerId = setInterval(tickGameTime, 1000);
+
+            // 啟動地鼠生成主迴圈
+            tickSpawnLoop();
+        }
+
+        /**
+         * 停止遊戲 (使用者中途退出)
+         */
+        function stopGame() {
+            cleanupTimers();
+            clearAllHoles();
+            isPlaying = false;
+            showStartScreen();
+        }
+
+        /**
+         * 結束遊戲 (時間到結算)
+         */
+        function endGame() {
+            isPlaying = false;
+            cleanupTimers();
+            clearAllHoles();
+
+            Sound.play('gameOver');
+
+            // 檢查是否突破最高分紀錄
+            const currentHighScore = parseInt(localStorage.getItem('whack_mole_high_score') || 0);
+            let isNewRecord = false;
+            if (score > currentHighScore) {
+                localStorage.setItem('whack_mole_high_score', score);
+                isNewRecord = true;
+            }
+
+            // 計算精準度
+            const totalTargetMoles = molesHit + molesMissed;
+            const hitRate = totalTargetMoles > 0 ? Math.round((molesHit / totalTargetMoles) * 100) : 0;
+
+            // 更新結算畫面數值
+            finalScoreEl.textContent = score;
+            statMaxComboEl.textContent = maxCombo;
+            statHitRateEl.textContent = `${hitRate}%`;
+            
+            if (isNewRecord) {
+                newRecordBadge.classList.remove('hidden');
+            } else {
+                newRecordBadge.classList.add('hidden');
+            }
+
+            // 畫面轉向結算畫面
+            gameScreen.classList.add('hidden');
+            gameOverScreen.classList.remove('hidden');
+            updateHighScoreDisplay();
+        }
+
+        /**
+         * 每秒時間倒數與動態百分比條
+         */
+        function tickGameTime() {
+            timeLeft--;
+            if (timeLeft <= 0) {
+                timeLeft = 0;
+                gameTimeEl.textContent = "0s";
+                timeProgressBar.style.width = '0%';
+                endGame();
+                return;
+            }
+
+            gameTimeEl.textContent = `${timeLeft}s`;
+            const percentage = (timeLeft / CONFIG.gameDuration) * 100;
+            timeProgressBar.style.width = `${percentage}%`;
+
+            // 當倒數剩餘 5 秒時，計時條轉為紅色閃爍
+            if (timeLeft <= 5) {
+                timeProgressBar.classList.remove('from-emerald-400', 'to-teal-300');
+                timeProgressBar.classList.add('bg-red-500');
+            } else {
+                timeProgressBar.classList.remove('bg-red-500');
+                timeProgressBar.classList.add('from-emerald-400', 'to-teal-300');
+            }
+        }
+
+        /**
+         * 地鼠生成的定時迴圈
+         */
+        function tickSpawnLoop() {
+            if (!isPlaying) return;
+
+            // 動態調整地鼠停留時間與生成數量
+            const difficultyLevel = getDifficultyLevel();
+            difficultyLevelEl.textContent = difficultyLevel;
+
+            // 隨分數提高，地鼠同時出現的最高數量可能提高
+            let maxSimultaneous = 1;
+            if (difficultyLevel >= 3) maxSimultaneous = 2;
+            if (difficultyLevel >= 5) maxSimultaneous = 3;
+
+            const activeCount = holeStates.filter(h => h.active).length;
+            
+            if (activeCount < maxSimultaneous) {
+                // 挑選一個空的洞
+                const emptyHoles = [];
+                holeStates.forEach((state, idx) => {
+                    if (!state.active) emptyHoles.push(idx);
+                });
+
+                if (emptyHoles.length > 0) {
+                    const randomHoleIdx = emptyHoles[Math.floor(Math.random() * emptyHoles.length)];
+                    spawnMole(randomHoleIdx);
+                }
+            }
+
+            // 隨機動態生成間隔：分數越高，產生越密集
+            const minInterval = 400;
+            const currentSpawnInterval = Math.max(minInterval, CONFIG.spawnInterval - (difficultyLevel * 60));
+
+            spawnTimerId = setTimeout(tickSpawnLoop, currentSpawnInterval);
+        }
+
+        /**
+         * 依目前得分，傳回動態難度等級 (1 ~ 6)
+         */
+        function getDifficultyLevel() {
+            if (score >= 400) return 6;
+            if (score >= 250) return 5;
+            if (score >= 150) return 4;
+            if (score >= 80)  return 3;
+            if (score >= 30)  return 2;
+            return 1;
+        }
+
+        /**
+         * 核心生成地鼠機制
+         * @param {number} holeIdx 洞的索引 (0 ~ 8)
+         */
+        function spawnMole(holeIdx) {
+            const container = moleContainers[holeIdx];
+            const state = holeStates[holeIdx];
+
+            state.active = true;
+
+            // 決定地鼠種類：普通 (70%), 金色 (15%), 炸彈 (15%)
+            const rand = Math.random();
+            let moleType = 'normal';
+            if (rand < 0.15) {
+                moleType = 'gold';
+            } else if (rand < 0.30) {
+                moleType = 'bomb';
+            }
+
+            state.type = moleType;
+
+            // 根據類型注入對應的 SVG
+            if (moleType === 'normal') {
+                container.innerHTML = NORMAL_MOLE_SVG;
+            } else if (moleType === 'gold') {
+                container.innerHTML = GOLD_MOLE_SVG;
+            } else if (moleType === 'bomb') {
+                container.innerHTML = BOMB_MOLE_SVG;
+            }
+
+            // 地鼠露面
+            container.classList.add('up');
+            molesSpawned++;
+
+            // 動態難度：停留時間隨分數減少
+            const level = getDifficultyLevel();
+            let upDuration = Math.max(CONFIG.minMoleUpTime, CONFIG.baseMoleUpTime - (level * 90));
+
+            // 金色地鼠浮現時間減半
+            if (moleType === 'gold') {
+                upDuration = upDuration * 0.55;
+            }
+            // 炸彈地鼠稍微留長一點引誘玩家
+            if (moleType === 'bomb') {
+                upDuration = upDuration * 1.1;
+            }
+
+            // 設定自動縮回定時器
+            state.timeoutId = setTimeout(() => {
+                retractMole(holeIdx, false);
+            }, upDuration);
+        }
+
+        /**
+         * 收回地鼠
+         * @param {number} holeIdx 
+         * @param {boolean} isWhacked 玩家是否成功打中
+         */
+        function retractMole(holeIdx, isWhacked) {
+            const container = moleContainers[holeIdx];
+            const state = holeStates[holeIdx];
+
+            if (!state.active) return;
+
+            // 如果沒被打中，且不是炸彈地鼠，代表漏打
+            if (!isWhacked && state.type !== 'bomb') {
+                molesMissed++;
+                resetCombo(); // 漏打會中斷連擊
+            }
+
+            // 清除自動收回定時器
+            if (state.timeoutId) {
+                clearTimeout(state.timeoutId);
+                state.timeoutId = null;
+            }
+
+            if (!isWhacked) {
+                // 如果是自動收回（未被打到），直接降下
+                container.classList.remove('up');
+                setTimeout(() => {
+                    container.innerHTML = '';
+                    state.active = false;
+                    state.type = null;
+                }, 250); // 等降下過渡完成
+            } else {
+                // 如果被打中，動畫會有打擊震動震盪，延遲再完全消失
+                setTimeout(() => {
+                    container.classList.remove('up', 'hit');
+                    container.innerHTML = '';
+                    state.active = false;
+                    state.type = null;
+                }, 450); // 震盪動畫完畢後清空
+            }
+        }
+
+        /**
+         * 處理地鼠被打中點擊事件
+         */
+        function handleMoleWhack(event, container) {
+            // 防止重複點擊或冒泡
+            event.stopPropagation();
+
+            const holeIdx = parseInt(container.getAttribute('data-id'));
+            const state = holeStates[holeIdx];
+
+            // 安全防護
+            if (!isPlaying || !state.active || container.classList.contains('hit')) return;
+
+            // 加上被擊中震動 Class 觸發 CSS 動畫
+            container.classList.add('hit');
+
+            const moleType = state.type;
+            let pointsGained = 0;
+
+            // 產生塵埃/煙霧視覺反饋
+            createDustEffect(event, container);
+
+            if (moleType === 'normal') {
+                // 連擊加乘
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+
+                const multiplier = getComboMultiplier(combo);
+                pointsGained = Math.round(10 * multiplier);
+                score += pointsGained;
+
+                // 改變地鼠為被扁表情
+                container.innerHTML = HIT_NORMAL_MOLE_SVG;
+                
+                // 浮動文字顯示
+                createScorePopup(container, `+${pointsGained}`, 'text-teal-400');
+                
+                // 播放打擊普通地鼠
+                Sound.play('whackNormal');
+
+                // 更新 Combo UI 顯示
+                updateComboUI(multiplier);
+
+            } else if (moleType === 'gold') {
+                // 金色地鼠獲得極高分數
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+
+                const multiplier = getComboMultiplier(combo);
+                pointsGained = Math.round(50 * multiplier);
+                score += pointsGained;
+
+                container.innerHTML = HIT_GOLD_MOLE_SVG;
+                createScorePopup(container, `+${pointsGained} ✨`, 'text-yellow-400');
+                Sound.play('whackGold');
+
+                updateComboUI(multiplier);
+
+            } else if (moleType === 'bomb') {
+                // 打到炸彈地鼠扣分
+                pointsGained = -20;
+                score = Math.max(0, score + pointsGained); // 得分不為負數
+
+                container.innerHTML = HIT_BOMB_MOLE_SVG;
+                createScorePopup(container, `-20 💣`, 'text-red-500');
+                
+                // 觸發全螢幕紅色閃爍
+                triggerFlashScreen();
+                
+                Sound.play('bombExplosion');
+
+                // 打到炸彈，中斷 Combo 
+                resetCombo();
+            }
+
+            // 更新得分面板
+            updateScoreUI();
+
+            // 正式將地鼠收回
+            retractMole(holeIdx, true);
+        }
+
+        /**
+         * 連擊倍率計算：
+         * 1~4 連擊：1.0x
+         * 5~9 連擊：1.5x
+         * 10+ 連擊：2.0x
+         */
+        function getComboMultiplier(currentCombo) {
+            if (currentCombo >= 10) return 2.0;
+            if (currentCombo >= 5)  return 1.5;
+            return 1.0;
+        }
+
+        /**
+         * 更新 Combo 連擊介面
+         */
+        function updateComboUI(multiplier) {
+            if (combo >= 2) {
+                comboCountEl.textContent = combo;
+                comboMultiplierEl.textContent = `x${multiplier.toFixed(1)}`;
+                comboContainer.classList.remove('opacity-0', 'scale-75');
+                comboContainer.classList.add('opacity-100', 'scale-100');
+
+                // 若剛好到達連擊門檻，可發送一個小驚喜音效
+                if (combo === 5 || combo === 10) {
+                    Sound.play('comboUp');
+                }
+            } else {
+                comboContainer.classList.add('opacity-0', 'scale-75');
+            }
+        }
+
+        /**
+         * 重置 Combo
+         */
+        function resetCombo() {
+            combo = 0;
+            comboContainer.classList.remove('opacity-100', 'scale-100');
+            comboContainer.classList.add('opacity-0', 'scale-75');
+        }
+
+        /**
+         * 更新目前累積分數顯示
+         */
+        function updateScoreUI() {
+            // 轉為 4 位數的前導零格式
+            const formattedScore = String(score).padStart(4, '0');
+            gameScoreEl.textContent = formattedScore;
+        }
+
+        /**
+         * 生成浮動跳字
+         */
+        function createScorePopup(targetElement, text, colorClass) {
+            const popup = document.createElement('div');
+            popup.className = `score-popup ${colorClass} text-2xl font-black`;
+            popup.textContent = text;
+            
+            // 稍微偏移，避免覆蓋
+            const randomX = Math.floor(Math.random() * 30) - 15;
+            popup.style.left = `calc(50% + ${randomX}px)`;
+            popup.style.top = '-20px';
+
+            targetElement.appendChild(popup);
+
+            // 動畫播完後移除 DOM
+            setTimeout(() => {
+                popup.remove();
+            }, 800);
+        }
+
+        /**
+         * 製造打擊煙塵/氣泡特效
+         */
+        function createDustEffect(event, container) {
+            const dust = document.createElement('div');
+            dust.className = 'dust-cloud';
+
+            // 取得相對於點擊容器的位置
+            const rect = container.getBoundingClientRect();
+            let clickX, clickY;
+
+            if (event.touches && event.touches[0]) {
+                clickX = event.touches[0].clientX - rect.left;
+                clickY = event.touches[0].clientY - rect.top;
+            } else {
+                clickX = event.clientX - rect.left;
+                clickY = event.clientY - rect.top;
+            }
+
+            dust.style.left = `${clickX}px`;
+            dust.style.top = `${clickY}px`;
+
+            container.appendChild(dust);
+
+            setTimeout(() => {
+                dust.remove();
+            }, 400);
+        }
+
+        /**
+         * 螢幕閃爍紅光防護
+         */
+        function triggerFlashScreen() {
+            flashOverlay.classList.remove('flash-screen');
+            // 強制重繪 (reflow)，使動畫能重新播放
+            void flashOverlay.offsetWidth;
+            flashOverlay.classList.add('flash-screen');
+        }
+
+        /**
+         * 安全清空重設所有的洞
+         */
+        function clearAllHoles() {
+            holeStates.forEach((state, idx) => {
+                if (state.timeoutId) {
+                    clearTimeout(state.timeoutId);
+                }
+                const container = moleContainers[idx];
+                container.classList.remove('up', 'hit');
+                container.innerHTML = '';
+                
+                state.active = false;
+                state.type = null;
+                state.timeoutId = null;
+            });
+        }
+
+        /**
+         * 清理所有計時定時器
+         */
+        function cleanupTimers() {
+            if (gameTimerId) {
+                clearInterval(gameTimerId);
+                gameTimerId = null;
+            }
+            if (spawnTimerId) {
+                clearTimeout(spawnTimerId);
+                spawnTimerId = null;
+            }
+        }
+    </script>
+</body>
+</html>
